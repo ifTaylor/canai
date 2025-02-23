@@ -1,0 +1,12 @@
+type: "realsense"
+width: 640
+height: 480
+fps: 60
+
+exposure: 500
+gain: 50
+white_balance: 5000
+contrast: 50
+saturation: 64
+gamma: 300
+sharpness: 50

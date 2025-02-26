@@ -40,8 +40,8 @@ def main() -> None:
             sensor_config = load_yaml_config("configs/webcam_config.yaml")
             camera = WebcamCamera(
                 cam_index=sensor_config.get("cam_index", 0),
-                width=sensor_config.get("width", 640),
-                height=sensor_config.get("height", 480)
+                width=sensor_config.get("width"),
+                height=sensor_config.get("height")
             )
             logger.info("Webcam initialized with config: %s", sensor_config)
 

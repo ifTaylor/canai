@@ -23,18 +23,19 @@ class WebcamCamera:
 
     def __init__(
         self, cam_index: int = 0,
-        width: int = 640,
-        height: int = 480
+        width: int = 1280,
+        height: int = 720
     ) -> None:
         self.cam_index: int = cam_index
         self.width: int = width
         self.height: int = height
+        self.running: bool = False
         self.cap: cv2.VideoCapture = cv2.VideoCapture(self.cam_index)
 
         if not self.cap.isOpened():
             logger.critical("Could not open webcam at index %d", self.cam_index)
             raise RuntimeError(f"Could not open webcam at index {self.cam_index}")
-
+        self.running = True
         self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, self.width)
         self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, self.height)
         logger.info("Webcam initialized at index %d with resolution %dx%d", self.cam_index, self.width, self.height)

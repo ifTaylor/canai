@@ -22,7 +22,8 @@ source venv/bin/activate
 ### 3. Install Dependencies
 
 ```sh
-pip install -r requirements.txt
+pip install poetry
+poetry install
 ```
 
 ### 4. Add Model Weights

@@ -1,0 +1,27 @@
+[tool.poetry]
+name = "canai"
+version = "0.1.0"
+description = "Capture, Analyze, Notify with AI"
+authors = ["Taylor Turner <resume.tturner@gmail.com>"]
+readme = "README.md"
+license = "MIT"
+packages = [
+    { include = "canai" }
+]
+
+[tool.poetry.dependencies]
+python = "^3.9"
+PyYAML = ">=6.0.2"
+torch = ">=2.6.0"
+opencv-python = ">=4.11.0.86"
+pyrealsense2 = ">=2.55.1.6486"
+pandas = ">=2.2.3"
+pillow = ">=11.1.0"
+
+[tool.poetry.group.test.dependencies]
+pytest = "^8.3.3"
+coverage = "^7.6.9"
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"

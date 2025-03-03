@@ -3,12 +3,12 @@ import yaml
 import logging
 from typing import Any, Dict
 
-from detectors.ai_detector import AIDetector
-from project_utils.video_recorder import EventClipRecorder
-from project_utils.realsense_camera import RealSenseCamera
-from project_utils.web_camera import WebcamCamera
-from stream.video_stream_handler import VideoStreamHandler
-from stream.object_detection_app import ObjectDetectionApp
+from canai.detectors.ai_detector import AIDetector
+from canai.project_utils.video_recorder import EventClipRecorder
+from canai.project_utils.realsense_camera import RealSenseCamera
+from canai.project_utils.web_camera import WebcamCamera
+from canai.stream.video_stream_handler import VideoStreamHandler
+from canai.stream.object_detection_app import ObjectDetectionApp
 
 # Configure logging
 logging.basicConfig(

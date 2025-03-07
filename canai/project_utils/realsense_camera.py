@@ -30,9 +30,9 @@ class RealSenseCamera:
         self.config = rs.config()
         self.last_frame_time: float = 0.0
 
-        self.width = config.get("width")
-        self.height = config.get("height")
-        self.fps = config.get("fps")
+        self.width = config.get("width", 640)
+        self.height = config.get("height", 480)
+        self.fps = config.get("fps", 30)
         self.depth_enabled = config.get("depth_enabled", False)
         self.exposure: int = config.get("exposure", 100)
         self.gain: int = config.get("gain", 50)
@@ -130,16 +130,6 @@ class RealSenseCamera:
         self.color_sensor.set_option(rs.option.sharpness, self.sharpness)
         logger.info("Camera sensor settings applied.")
 
-    def _sync_frame_rate(self) -> None:
-        """
-        Synchronizes frame capture to maintain target frame rate.
-        """
-        current_time = time.time()
-        elapsed = float(current_time - self.last_frame_time)
-        sleep_time = max(0.0, float(self.target_frame_interval - elapsed))
-        time.sleep(sleep_time)
-        self.last_frame_time = time.time()
-
     def get_frame(self) -> Optional[np.ndarray]:
         """
         Captures a single frame from the camera.
@@ -154,7 +144,6 @@ class RealSenseCamera:
             return None
 
         try:
-            self._sync_frame_rate()
             frames = self.pipeline.wait_for_frames()
             if self.depth_enabled:
                 aligned_frames = self.align.process(frames)

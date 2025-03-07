@@ -53,16 +53,6 @@ class WebcamCamera:
         logger.info("Webcam initialized at index %d with resolution %dx%d at %d FPS",
                     self.cam_index, actual_width, actual_height, actual_fps)
 
-    def _sync_frame_rate(self) -> None:
-        """
-        Synchronizes frame capture to maintain target frame rate.
-        """
-        current_time = time.time()
-        elapsed = float(current_time - self.last_frame_time)
-        sleep_time = max(0.0, float(self.target_frame_interval - elapsed))
-        time.sleep(sleep_time)
-        self.last_frame_time = time.time()
-
     def get_frame(self) -> Optional[np.ndarray]:
         """
         Captures a single frame from the webcam.
@@ -72,7 +62,6 @@ class WebcamCamera:
         Optional[np.ndarray]
             The captured frame as a NumPy array, or None if the frame could not be retrieved.
         """
-        #self._sync_frame_rate()
         ret, frame = self.cap.read()
         if ret:
             return frame

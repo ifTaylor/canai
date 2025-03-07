@@ -1,7 +1,8 @@
 import cv2
 import numpy as np
 import logging
-from typing import Optional
+import time
+from typing import Dict, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -13,32 +14,54 @@ class WebcamCamera:
     ----------
     cam_index : int
         The index of the webcam device.
-    width : int
+    width : Optional[int]
         The width of the video frame.
-    height : int
+    height : Optional[int]
         The height of the video frame.
     cap : cv2.VideoCapture
         The OpenCV VideoCapture object used to interface with the webcam.
     """
 
     def __init__(
-        self, cam_index: int = 0,
-        width: int = 1280,
-        height: int = 720
+            self,
+            config: Dict[str, int] = {}
     ) -> None:
-        self.cam_index: int = cam_index
-        self.width: int = width
-        self.height: int = height
-        self.running: bool = False
-        self.cap: cv2.VideoCapture = cv2.VideoCapture(self.cam_index)
+        self.cam_index = config.get("cam_index", 0)
+        self.width = config.get("width")
+        self.height = config.get("height")
+        self.fps = config.get("fps", 30)
+
+        self.cap: Optional[cv2.VideoCapture] = None
+        self.last_frame_time: float = 0.0
+
+        self.target_frame_interval: float = 1.0 / self.fps
+
+        self.cap = cv2.VideoCapture(self.cam_index)
 
         if not self.cap.isOpened():
-            logger.critical("Could not open webcam at index %d", self.cam_index)
+            logger.critical("Could not open webcam at index %s", self.cam_index)
             raise RuntimeError(f"Could not open webcam at index {self.cam_index}")
-        self.running = True
-        self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, self.width)
-        self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, self.height)
-        logger.info("Webcam initialized at index %d with resolution %dx%d", self.cam_index, self.width, self.height)
+
+        if self.width and self.height:
+            self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, self.width)
+            self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, self.height)
+        self.cap.set(cv2.CAP_PROP_FPS, self.fps)
+
+        actual_width = self.cap.get(cv2.CAP_PROP_FRAME_WIDTH)
+        actual_height = self.cap.get(cv2.CAP_PROP_FRAME_HEIGHT)
+        actual_fps = self.cap.get(cv2.CAP_PROP_FPS)
+        logger.info("Webcam initialized at index %d with resolution %dx%d at %d FPS",
+                    self.cam_index, actual_width, actual_height, actual_fps)
+
+    def _sync_frame_rate(self) -> None:
+        """
+        Synchronizes frame capture to maintain target frame rate.
+        """
+        current_time = time.time()
+        elapsed = float(current_time - self.last_frame_time)
+        sleep_time = max(0.0, float(self.target_frame_interval - elapsed))
+        time.sleep(sleep_time)
+        self.last_frame_time = time.time()
 
     def get_frame(self) -> Optional[np.ndarray]:
         """
@@ -49,17 +72,18 @@ class WebcamCamera:
         Optional[np.ndarray]
             The captured frame as a NumPy array, or None if the frame could not be retrieved.
         """
+        #self._sync_frame_rate()
         ret, frame = self.cap.read()
         if ret:
             return frame
 
-        logger.warning("Failed to capture frame from webcam at index %d", self.cam_index)
+        logger.warning("Failed to capture frame from webcam at index %s", self.cam_index)
         return None
 
     def stop(self) -> None:
         """
         Releases the webcam resource.
         """
-        if self.cap.isOpened():
+        if self.cap is not None and self.cap.isOpened():
             self.cap.release()
-            logger.info("Webcam at index %d has been released", self.cam_index)
+            logger.info("Webcam at index %s has been released", self.cam_index)

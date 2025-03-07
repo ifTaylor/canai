@@ -2,6 +2,7 @@ type: "realsense"
 width: 640
 height: 480
 fps: 60
+depth_enabled: False
 
 exposure: 500
 gain: 50

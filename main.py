@@ -8,7 +8,7 @@ from canai.project_utils.video_recorder import EventClipRecorder
 from canai.project_utils.realsense_camera import RealSenseCamera
 from canai.project_utils.web_camera import WebcamCamera
 from canai.stream.video_stream_handler import VideoStreamHandler
-from canai.stream.object_detection_app import ObjectDetectionApp
+from canai.canai import CanAI
 
 # Configure logging
 logging.basicConfig(
@@ -37,13 +37,9 @@ def main() -> None:
 
     try:
         if args.camera == "webcam":
-            sensor_config = load_yaml_config("configs/webcam_config.yaml")
-            camera = WebcamCamera(
-                cam_index=sensor_config.get("cam_index", 0),
-                width=sensor_config.get("width"),
-                height=sensor_config.get("height")
-            )
-            logger.info("Webcam initialized with config: %s", sensor_config)
+            camera_config = load_yaml_config("configs/webcam_config.yaml")
+            camera = WebcamCamera(config=camera_config)
+            logger.info("Webcam initialized with config: %s", camera_config)
 
         elif args.camera == "realsense":
             camera_config = load_yaml_config("configs/realsense_config.yaml")
@@ -59,7 +55,7 @@ def main() -> None:
 
         # Create AI detector instance
         detector = AIDetector(
-            model_path=app_config.get("model_path", "models/best14.pt"),
+            model_path=app_config.get("model_path", app_config.get("model_path")),
             detection_threshold=app_config.get("detection_threshold", 0.5),
             target_class_id=app_config.get("target_class_id", None)
         )
@@ -80,8 +76,8 @@ def main() -> None:
         logger.info("VideoStreamHandler initialized with max_pre_frames: %d", max_pre_frames)
 
         # Create and run object detection application
-        app = ObjectDetectionApp(camera, detector, recorder, stream_handler, app_config)
-        logger.info("ObjectDetectionApp initialized. Running application...")
+        app = CanAI(camera, detector, recorder, stream_handler, app_config)
+        logger.info("CanAI initialized. Running application...")
 
         app.run()
 

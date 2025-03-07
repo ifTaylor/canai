@@ -25,32 +25,37 @@ class AIDetector:
     """
 
     def __init__(
-        self,
-        model_path: Optional[str] = None,
-        detection_threshold: float = 0.1,
-        target_class_id: Optional[int] = None
+            self,
+            model_path: Optional[str] = None,
+            detection_threshold: float = 0.5,
+            target_class_id: Optional[int] = None
     ) -> None:
         self.detection_threshold: float = detection_threshold
         self.target_class_id: Optional[int] = target_class_id
 
         try:
+            if torch.cuda.is_available():
+                device = 'cuda:0'
+            else:
+                device = 'cpu'
+
             if model_path is None:
-                logger.info("Loading pretrained YOLOv5s model from Ultralytics hub.")
-                self.model = torch.hub.load('ultralytics/yolov5', 'yolov5s', pretrained=True)
+                logger.info("Loading pretrained YOLOv5n model from Ultralytics hub.")
+                self.model = torch.hub.load('ultralytics/yolov5', 'yolov5n', pretrained=True, device=device)
             else:
                 logger.info("Loading custom YOLOv5 model from: %s", model_path)
-                self.model = torch.hub.load('ultralytics/yolov5', 'custom', path=model_path, force_reload=False,
-                                            device="cpu")
+                self.model = torch.hub.load('ultralytics/yolov5', 'custom', path=model_path, force_reload=True,
+                                            device=device)
 
-            self.model.eval()
-            logger.info("YOLOv5 model loaded successfully.")
+            self.model.to(device).eval()
+            logger.info("YOLOv5 model loaded successfully on %s.", device)
         except Exception as e:
             logger.critical("Failed to load YOLOv5 model: %s", e, exc_info=True)
             raise
 
     def detect(
-        self,
-        frame: np.ndarray
+            self,
+            frame: np.ndarray
     ) -> Tuple[bool, np.ndarray]:
         """
         Detects objects in a given frame using the YOLOv5 model.
@@ -69,7 +74,10 @@ class AIDetector:
         """
         try:
             frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-            results = self.model(frame_rgb)
+            frame_rgb = cv2.resize(frame_rgb, (640, 640))  # Standard YOLOv5 input size
+
+            # Run inference
+            results = self.model(frame_rgb, size=640)  # Specify size for faster processing
             detections = results.xyxy[0].cpu().numpy()
 
             output_frame = frame.copy()
@@ -103,4 +111,3 @@ class AIDetector:
         except Exception as e:
             logger.error("Error during detection: %s", e, exc_info=True)
             return False, frame
-

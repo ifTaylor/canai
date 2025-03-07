@@ -4,7 +4,7 @@ import time
 import os
 import logging
 import numpy as np
-from typing import Callable, List, Optional
+from typing import Callable, List, Optional, Tuple, Any
 
 logger = logging.getLogger(__name__)
 
@@ -30,133 +30,59 @@ class EventClipRecorder:
     ) -> None:
         self.fps: int = fps
         self.post_event_seconds: int = post_event_seconds
-        self.output_dir: str = output_dir or ""
+        self.output_dir: str = output_dir or "./clips/"
 
-    def _sync_frame_rate(
-        self,
-        last_frame_time: float,
-        frame_interval: float
-    ) -> float:
+    def record_clip(self, pre_event_frames: List[np.ndarray], get_current_frame: Callable[[], np.ndarray]) -> None:
         """
-        Ensures recorded frames are spaced correctly to maintain playback speed.
+        Record a video clip starting from pre-event frames.
 
         Parameters
         ----------
-        last_frame_time : float
-            Timestamp of the last recorded frame.
-        frame_interval : float
-            Expected time interval between frames.
-
-        Returns
-        -------
-        float
-            The updated timestamp of the last recorded frame.
+        pre_event_frames : List[np.ndarray]
+            List of frames captured before the event
+        get_current_frame : Callable[[], np.ndarray]
+            Function to get the current frame from the stream
         """
-        next_frame_time = last_frame_time + frame_interval
-        sleep_time = max(0, next_frame_time - time.time())
-        time.sleep(sleep_time)
-        return time.time()
+        try:
+            # Create output directory if it doesn't exist
+            os.makedirs(self.output_dir, exist_ok=True)
 
-    def _write_frames(
-        self,
-        frames: List[np.ndarray],
-        out: cv2.VideoWriter,
-        start_time: float
-    ) -> float:
-        """
-        Writes pre-event frames to the video file.
+            # Generate timestamped filename
+            timestamp = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
+            output_path = os.path.join(self.output_dir, f'{timestamp}.avi')
 
-        Parameters
-        ----------
-        frames : List[np.ndarray]
-            List of frames to be written to the video.
-        out : cv2.VideoWriter
-            Video writer object.
-        start_time : float
-            Start time of the recording.
+            # Get frame dimensions from first frame
+            if not pre_event_frames:
+                logger.warning("No pre-event frames available")
+                return
 
-        Returns
-        -------
-        float
-            Timestamp of the last recorded frame.
-        """
-        frame_interval = 1.0 / self.fps
-        last_frame_time = start_time
-        for frame in frames:
-            out.write(frame)
-            last_frame_time = self._sync_frame_rate(last_frame_time, frame_interval)
-        return last_frame_time
+            frame_height, frame_width = pre_event_frames[0].shape[:2]
 
-    def _write_post_frames(
-        self,
-        current_frame_func: Callable[[], Optional[np.ndarray]],
-        out: cv2.VideoWriter,
-        last_frame_time: float
-    ) -> float:
-        """
-        Captures and writes post-event frames after detection.
+            # Initialize video writer
+            fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+            video_writer = cv2.VideoWriter(
+                output_path,
+                fourcc,
+                self.fps,
+                (frame_width, frame_height)
+            )
 
-        Parameters
-        ----------
-        current_frame_func : Callable[[], Optional[np.ndarray]]
-            Function that retrieves the current frame.
-        out : cv2.VideoWriter
-            Video writer object.
-        last_frame_time : float
-            Timestamp of the last recorded frame.
+            # Write pre-event frames
+            for frame in pre_event_frames:
+                video_writer.write(frame)
 
-        Returns
-        -------
-        float
-            Timestamp of the last recorded frame after post-event frames.
-        """
-        frame_interval = 1.0 / self.fps
-        num_post_frames = int(self.fps * self.post_event_seconds)
+            # Record post-event frames
+            start_time = time.time()
+            while time.time() - start_time < self.post_event_seconds:
+                frame = get_current_frame()
+                if frame is not None:
+                    video_writer.write(frame)
+                time.sleep(1/self.fps)
 
-        for _ in range(num_post_frames):
-            frame = current_frame_func()
-            if frame is not None:
-                out.write(frame)
-            last_frame_time = self._sync_frame_rate(last_frame_time, frame_interval)
+            logger.info(f"Successfully recorded clip to {output_path}")
 
-        return last_frame_time
-
-    def record_clip(
-        self,
-        pre_frames: List[np.ndarray],
-        current_frame_func: Callable[[], Optional[np.ndarray]]
-    ) -> None:
-        """
-        Records a video clip that includes pre-event and post-event frames.
-
-        Parameters
-        ----------
-        pre_frames : List[np.ndarray]
-            List of pre-event frames captured before the detection event.
-        current_frame_func : Callable[[], Optional[np.ndarray]]
-            Function to retrieve current frames for post-event recording.
-        """
-        if not pre_frames:
-            logger.error("No pre-event frames to record.")
-            return
-
-        timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-        filename = f"event_{timestamp}.avi"
-        if self.output_dir:
-            filename = os.path.join(self.output_dir, filename)
-
-        h, w, _ = pre_frames[0].shape
-        fourcc = cv2.VideoWriter_fourcc(*'MJPG')
-        out = cv2.VideoWriter(filename, fourcc, self.fps, (w, h))
-
-        if not out.isOpened():
-            logger.error("Could not open video writer for file: %s", filename)
-            return
-
-        logger.info("Recording started: %s", filename)
-        start_time = time.time()
-        last_frame_time = self._write_frames(pre_frames, out, start_time)
-        self._write_post_frames(current_frame_func, out, last_frame_time)
-        out.release()
-
-        logger.info("Recording saved: %s", filename)
+        except Exception as e:
+            logger.error(f"Error recording video clip: {e}", exc_info=True)
+        finally:
+            if 'video_writer' in locals():
+                video_writer.release()

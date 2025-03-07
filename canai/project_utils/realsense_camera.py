@@ -24,11 +24,16 @@ class RealSenseCamera:
 
     def __init__(
         self,
-        config: Dict[str, int]
+        config: Dict[str, int] = {}
     ) -> None:
-        self.width: int = config.get("width", 640)
-        self.height: int = config.get("height", 480)
-        self.fps: int = config.get("fps", 30)
+        self.pipeline = rs.pipeline()
+        self.config = rs.config()
+        self.last_frame_time: float = 0.0
+
+        self.width = config.get("width")
+        self.height = config.get("height")
+        self.fps = config.get("fps")
+        self.depth_enabled = config.get("depth_enabled", False)
         self.exposure: int = config.get("exposure", 100)
         self.gain: int = config.get("gain", 50)
         self.white_balance: int = config.get("white_balance", 4500)
@@ -37,28 +42,19 @@ class RealSenseCamera:
         self.gamma: int = config.get("gamma", 50)
         self.sharpness: int = config.get("sharpness", 50)
 
-        self.pipeline: rs.pipeline = rs.pipeline()
-        self.config: rs.config = rs.config()
-        self.running: bool = False
-        self.color_sensor: Optional[rs.sensor] = None
+        self.target_frame_interval: float = 1.0 / self.fps
 
-        try:
-            if not self._is_fps_supported(self.width, self.height, self.fps):
-                logger.warning(
-                    "%dx%d at %d FPS is not supported! Using 30 FPS instead.",
-                    self.width, self.height, self.fps
-                )
-                self.fps = 30
+        self.config.enable_stream(rs.stream.color, self.width, self.height, rs.format.bgr8, self.fps)
+        if self.depth_enabled:
+            self.config.enable_stream(rs.stream.depth, self.width, self.height, rs.format.z16, self.fps)
 
-            self.config.enable_stream(rs.stream.color, self.width, self.height, rs.format.bgr8, self.fps)
-            self.profile = self.pipeline.start(self.config)
-            self.running = True
-            time.sleep(2)
-            self._configure_sensor()
-            logger.info("RealSense Camera initialized successfully.")
-        except Exception as e:
-            logger.error("Failed to start RealSense Camera: %s", e, exc_info=True)
-            self.pipeline = None
+        self.profile = self.pipeline.start(self.config)
+        self.align = rs.align(rs.stream.color) if self.depth_enabled else None
+
+        self.running = True
+        time.sleep(2)
+        self._configure_sensor()
+        logger.info("RealSense Camera initialized successfully.")
 
     def _is_fps_supported(
         self,
@@ -134,6 +130,16 @@ class RealSenseCamera:
         self.color_sensor.set_option(rs.option.sharpness, self.sharpness)
         logger.info("Camera sensor settings applied.")
 
+    def _sync_frame_rate(self) -> None:
+        """
+        Synchronizes frame capture to maintain target frame rate.
+        """
+        current_time = time.time()
+        elapsed = float(current_time - self.last_frame_time)
+        sleep_time = max(0.0, float(self.target_frame_interval - elapsed))
+        time.sleep(sleep_time)
+        self.last_frame_time = time.time()
+
     def get_frame(self) -> Optional[np.ndarray]:
         """
         Captures a single frame from the camera.
@@ -148,8 +154,13 @@ class RealSenseCamera:
             return None
 
         try:
+            self._sync_frame_rate()
             frames = self.pipeline.wait_for_frames()
-            color_frame = frames.get_color_frame()
+            if self.depth_enabled:
+                aligned_frames = self.align.process(frames)
+                color_frame = aligned_frames.get_color_frame()
+            else:
+                color_frame = frames.get_color_frame()
 
             if not color_frame:
                 logger.warning("No color frame received from RealSense.")

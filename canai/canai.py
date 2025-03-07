@@ -30,6 +30,10 @@ class CanAI:
         Counter for frames processed.
     start_time : float
         Start time of the application.
+    last_detection_time : float
+        Timestamp of the last detection event.
+    recording_in_progress : bool
+        Flag indicating whether a recording is in progress.
     """
 
     def __init__(
@@ -48,6 +52,8 @@ class CanAI:
         self.recorded_detection: bool = False
         self.frame_counter: int = 0
         self.start_time: float = time.time()
+        self.last_detection_time: float = 0.0
+        self.recording_in_progress: bool = False
         self._validate_config()
 
     def run(self) -> None:
@@ -90,19 +96,34 @@ class CanAI:
         """
         Handles object detection and recording logic.
         """
-        detected, _ = self.detector.detect(frame)
-        if detected and not self.recorded_detection:
-            logger.info("Detection triggered, starting recording...")
-            pre_event_frames = list(self.stream_handler.frame_buffer.queue)
+        current_time = time.time()
+        detected, confidence = self.detector.detect(frame)
+        high_threshold = self.config.get('detection_threshold', 0.7)
+        low_threshold = self.config.get('low_detection_threshold', 0.3)
 
-            threading.Thread(
-                target=self.recorder.record_clip,
-                args=(pre_event_frames, self.stream_handler.get_current_frame),
-                daemon=True
-            ).start()
-            self.recorded_detection = True
-        elif not detected:
-            self.recorded_detection = False
+        if (confidence >= high_threshold).any() and not self.recording_in_progress:
+            if current_time - self.last_detection_time > self.config['pre_event_seconds']:
+                logger.info("Detection triggered, starting recording...")
+                pre_event_frames = list(self.stream_handler.frame_buffer.queue)
+
+                self.recording_in_progress = True
+                threading.Thread(
+                    target=self._record_clip,
+                    args=(pre_event_frames,),
+                    daemon=True
+                ).start()
+                self.last_detection_time = current_time
+            elif (confidence >= low_threshold).any():
+                self.last_detection_time = current_time
+            elif (confidence < low_threshold).all():
+                self.recorded_detection = False
+
+    def _record_clip(self, pre_event_frames: list) -> None:
+        """
+        Records a video clip starting from pre-event frames.
+        """
+        self.recorder.record_clip(pre_event_frames, self.stream_handler.get_current_frame)
+        self.recording_in_progress = False
 
     def _log_performance(self) -> None:
         """

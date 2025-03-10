@@ -8,7 +8,7 @@
 ### 1. Clone the Repository
 
 ```sh
-git clone https://github.com/your-username/canai.git
+git clone https://github.com/ifTaylor/canai.git
 cd canai
 ```
 
@@ -34,14 +34,8 @@ Create a directory named `models`, add model, and rename model in `configs/app_c
 
 ### Running the Application
 
-#### **1. Using a RealSense Camera**
 ```sh
-python main.py --camera realsense
-```
-
-#### **2. Using a Webcam**
-```sh
-python main.py --camera webcam
+python main.py
 ```
 
 Press **`q`** to stop the application.

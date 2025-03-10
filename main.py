@@ -1,11 +1,9 @@
-import argparse
 import yaml
 import logging
 from typing import Any, Dict
 
 from canai.detectors.ai_detector import AIDetector
 from canai.project_utils.video_recorder import EventClipRecorder
-from canai.project_utils.realsense_camera import RealSenseCamera
 from canai.project_utils.web_camera import WebcamCamera
 from canai.stream.video_stream_handler import VideoStreamHandler
 from canai.canai import CanAI
@@ -26,29 +24,11 @@ def load_yaml_config(path: str) -> Dict[str, Any]:
         raise
 
 def main() -> None:
-    parser = argparse.ArgumentParser(
-        description="Object Detection using YOLOv5 with RealSense or Webcam."
-    )
-    parser.add_argument("--camera", type=str, default="realsense",
-                        help="Select camera type: 'webcam' or 'realsense'.")
-    args = parser.parse_args()
-
     logger.info("Starting object detection application...")
-
     try:
-        if args.camera == "webcam":
-            camera_config = load_yaml_config("configs/webcam_config.yaml")
-            camera = WebcamCamera(config=camera_config)
-            logger.info("Webcam initialized with config: %s", camera_config)
-
-        elif args.camera == "realsense":
-            camera_config = load_yaml_config("configs/realsense_config.yaml")
-            camera = RealSenseCamera(config=camera_config)
-            logger.info("RealSense camera initialized with config: %s", camera_config)
-
-        else:
-            logger.error("Unknown camera type in configuration: '%s'", args.camera)
-            raise ValueError(f"Unknown camera type in configuration: '{args.camera}'")
+        camera_config = load_yaml_config("configs/webcam_config.yaml")
+        camera = WebcamCamera(config=camera_config)
+        logger.info("Webcam initialized with config: %s", camera_config)
 
         # Load application configuration
         app_config = load_yaml_config("configs/app_config.yaml")
